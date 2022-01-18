@@ -1,93 +1,97 @@
-# Общая информация
-Ссылка на [GitHub](https://github.com/a1div0/acme-client "GitHub").
+<a href="http://tarantool.org">
+   <img src="https://avatars2.githubusercontent.com/u/2344919?v=2&s=250"
+align="right">
+</a>
 
-Клиент ACME-протокола используется для автоматического получения сертификата безопасности для вашего сайта. Для бесплатного получения сертификата и автоматического его продления в основном все используют [Let's Encrypt](https://letsencrypt.org/ "Let's Encrypt"). Но и есть другие сервисы, например [Zero SSL](https://zerossl.com/ "Zero SSL"). Он тоже поддерживает ACME-протокол.
+# ACME-client for Tarantool 1.7.5+
 
-Я опирался на две статьи с Хабра ([эту](https://habr.com/ru/company/ispsystem/blog/354420/ "эту") и [эту](https://habr.com/ru/company/ispsystem/blog/413429/ "эту")), а также [RFC8555](https://datatracker.ietf.org/doc/html/rfc8555 "RFC8555"). Но информации в них оказазалось недостаточно, для того, чтобы реализовать собственный вариант модуля. Примерно половину нужной информации потребовалось дополнительно извлечь из нескольких реализаций данного модуля [на других языках](https://letsencrypt.org/ru/docs/client-options/ "на других языках"). Тесты проводил на живом сервисе, поэтому автотестов пока нет. Можете написать и сделать коммит.
+## Table of contents
+* [General information](#general-information)
+* [Installation](#installation)
+* [Preparing for work](#preparing-for-work)
+* [Preparing for work](#preparing-for-work)
 
-Модуль написан под Linux. Рассматривается только вторая версия протокола.
+## General information
+Link to [GitHub](https://github.com/a1div0/acme-client "GitHub").
 
-# Установка
-Вы можете:
-* Клонировать репозиторий:
-```shell
+The ACME protocol client is used to automatically obtain a security certificate for your site. Basically everyone uses [Let's Encrypt](https://letsencrypt.org/ "Let's Encrypt") to get a free certificate and auto-renewal. But there are other services, such as [Zero SSL](https://zerossl.com/ "Zero SSL"). It also supports the ACME protocol.
+
+I relied on two articles from Habr ([this](https://habr.com/ru/company/ispsystem/blog/354420/"this") and [this](https://habr.com/ru/company/ispsystem/blog/413429/ "this")), as well as [RFC8555](https://datatracker.ietf.org/doc/html/rfc8555 "RFC8555"). But the information in them was not enough to implement their own version of the modulation. At least several times higher than several implementations of the module [at another level]. The tests were conducted on a live service, so there are no autotests yet. You can write and commit.
+
+The module is written under Linux. Only the second version of the protocol is considered.
+
+# Installation
+You can:
+* Clone repository:
+``` shell
 git clone https://github.com/a1div0/acme-client.git
 ```
 
-# Подготовка к работе
+# Preparing for work
 ## CSR
-Предварительно необходимо сформировать запрос на подпись сертификата (Certificate Signing Request) - [CSR](https://en.wikipedia.org/wiki/Certificate_signing_request "CSR"). Этот файл (назовём его `csr.pem`) содержит информацию о вашем домене и организации. А именно там необходимо заполнить следующие поля:
-1. Доменное имя (CN) - на которое выпускается сертификат;
-2. Организация (O) - полное имя организации, которой принадлежит сайт;
-3. Отдел (OU) - подразделение организации, которое занимается выпуском сертификата;
-4. Страна (C) - [код](https://ru.wikipedia.org/wiki/ISO_3166-1_alpha-2 "ISO 3166-1 alpha-2") из двух символов, соответствующий стране организации ([список](https://ru.wikipedia.org/wiki/ISO_3166-2 "ISO 3166-2"));
-5. Штат/Область (ST) и город (L) - местонахождение организации;
-6. email (EMAIL) - почта для связи с организацией.
+You must first submit a Certificate Signing Request - [CSR](https://en.wikipedia.org/wiki/Certificate_signing_request "CSR"). This file (let's call it `csr.pem`) contains information about the future domain and organization. Namely, there are fields:
+1. Domain name (CN) - for which the certificate is issued;
+2. Organization (O) - the full name of the organization that owns the site;
+3. Department (OU) - groups of organizations involved in the issuance of a certificate;
+4. Country (C) - [code](https://ru.wikipedia.org/wiki/ISO_3166-1_alpha-2 "ISO 3166-1 alpha-2") of two characters corresponding to the organization's country ([list]( https://ru.wikipedia.org/wiki/ISO_3166-2 "ISO 3166-2"));
+5. State/Province (ST) and city (L) - the location of the organization;
+6. e-mail (EMAIL) - mail for communication with the contact.
 
-Сгенерировать такой файл можно с помощью онлайн-генераторов, например [вот](https://csrgenerator.com/ "CSR Generator") и [вот](https://www.reg.ru/ssl-certificate/generate_key_and_csr "Создание запроса на сертификат"). Можно с помощью OpenSSL. Для этого необходимо ввести команды вида:
+You can generate such a file using online generators, for example [here] (https://csrgenerator.com/ "CSR Generator") and [here] (https://www.reg.ru/ssl-certificate/generate_key_and_csr "Creating certificate request"). You can use OpenSSL. To do this, enter a command like:
 ```
 openssl genrsa -out private.key 4096
 openssl req -new -key private.key -out domain_name.csr -sha256
 ```
-Далее необходимо ввести указанную выше информацию и запрос готов. Должен получиться текстовый файлик такого вида:
+Next, you need to enter the above information and request. You should get a text file like this:
 ```
------BEGIN CERTIFICATE REQUEST-----
-MIICyDCCAbACAQAwgYIxCzAJBgNVBAYTAlJVMSQwIgYDVQQIDBvQkNC70YLQsNC5
+-----START CERTIFICATE REQUEST-----
+MIICyDCCAbACAQAwgYIxCzAJBgNVBAYTALJVMSQwIgYDVQQIDBvQkNC70YLQsNC5
 . . .
 Mf5rbR8Ok/PfHohVHsOp85mAyTInt7a5H4PHVHb7U8j5aPhc4HarH+LcJhM=
------END CERTIFICATE REQUEST-----
+-----END OF CERTIFICATE REQUEST-----
 
------BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCttTORMQRaZYq2
+-----START PRIVATE KEY-----
+MIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgeEAAoIBAQCttTORMQRaZYq2
 . . .
 QARm4Qu60qmM30MrhtCYOBk=
 -----END PRIVATE KEY-----
 ```
 
-В планах есть автоматизировать процесс создания CSR, так как практически можно продлять сертификат им же, но лучше создавать каждый раз новый.
+There are plans to automate the process of creating a CSR, since it is practically possible to distribute a certificate with it, but it is better to create a new one each time.
 
-## Добавить и настроить модуль
-Модуль возвращает объект с процедурами:
+## Add and configure a module
+The module returns an object by procedures:
 
-### Init
+### In that
 ```
-init(settings)
+initialization (settings)
 ```
-Данная процедура производит инициализацию внутренних переменных и передаёт настройки. Содержит параметр `settings`, который является таблицей с полями:
-* `dnsName` - обязательное поле, доменное имя, на которое получаем сертификат;
-* `certPath` - обязательное поле, полный путь до папки с сертификатами;
-* `certName` - не обязательное, по умолчанию = `cert.pem`, это имя файла, с которым будет создан сертификат;
-* `csrName` - обязательное поле, имя созданного ранее файла запроса на подпись сертификата, и положенного в папку `certPath`;
-* `challengeType` - не обязательное, по умолчанию = `http-01`, эта настройка показывает, какой тип проверки, что вы владеете доменом, будет использоваться. Всего доступно два варианта: `http01` и `dns01`. Первый тип проверки подтвержает владение, делая GET-запрос на определённый адрес сайта. Второй тип проверки делает DNS-запрос. Второй тип проверки нужен, если получаем сертификат на доменное имя сразу со всеми поддоменами: `*.domain.name` (wildcard-сертификаты). Подробнее можно поглядеть ниже в статье и [здесь](https://letsencrypt.org/ru/docs/challenge-types/ "здесь").
-* `acmeDirectoryUrl` - не обязательное, по умолчанию = "https://acme-v02.api.letsencrypt.org/directory", это путь до входной точки ACME-сервера.
+This production procedure allows you to create structures and transfers. Contains the `settings` parameter, which is a table with fields:
+* `dnsName` - required field, domain name with a certificate;
+* `certPath` - required field, full path to the folder with certificates;
+* `certName` - optional, default = `cert.pem`, this is the name of the file, the certificate will be created with the animals;
+* `csrName` - required field, the name of the certificate signing request file created earlier and placed in the `certPath` folder;
+* `challengeType` - optional, default = `http-01`, this setting indicates what type of verification that you own the domain will be in the Republic. There are two options available: `http01` and `dns01`. The first type of verification confirms ownership, the impact of a GET request on a specific site address. The second type of check makes a DNS query. The second type of verification is required if a certificate for a domain name is encountered with all subdomains at once: `*.domain.name` (wildcard certificates). More details can be found below in the article and [here](https://letsencrypt.org/en/docs/challenge-types/ "here").
+* `acmeDirectoryUrl` - optional, default = "https://acme-v02.api.letsencrypt.org/directory", this is the path to the entry point of the ACME-server.
 
 ### onSetupChallengeHttp01
 ```
-onSetupChallengeHttp01(url, body)
-```
-Данную процедуру необходимо переопределить, если использется проверка `http01`. Процедура будет вызвана, когда нужно будет установить ответ сервера. Сервер должен обязательно слушать 80-й порт, если получаем SSL-сертификат впервые. Или 443, если есть действующий SSL-сертификат. В момент вызова модуль передаст в качестве параметров:
-* `url` - адрес, на который необходимо установить ответ. Это будет строка вида `'/.well-known/acme-challenge/%token`;
-* `body` - текст, который необходимо вернуть при поступившем GET-запросе на указанный адрес.
-  Процедура вызывается два раза - один раз для установки ответа, второй раз для отмены установки. Если `body` содержит текст, код ответа должен быть = 200. Если `body == nil`, тогда код ответа должен быть равен 404.
-
-### onSetupChallengeDns01
-```
 onSetupChallengeDns01(key, value)
 ```
-Данную процедуру необходимо переопределить, если использется проверка `dns01`. Процедура будет вызвана, когда нужно будет установить DNS-запись типа `TXT`. В момент вызова модуль передаст имя ключа `key` и его значение `value`, которое необходимо записать в DNS.
-Процедура вызывается два раза - один раз для установки записи, второй раз для отмены установки (в параметре `value` будет передан nil).
-Пример реализации этого типа проверки выходит за рамки данной статьи.
+This procedure must be overridden if the `dns01` check is used. The procedure will be called when a DNS record of type `TXT` needs to be set. At the time of the call, the module will pass the key name `key` and its value `value`, which must be recorded in DNS.
+The procedure is called twice - once to set the entry, the second time to cancel the setting (nil will be passed in the `value` parameter).
+An example implementation of this type of validation is beyond the scope of this article.
 
 ### getCert
 ```
 getCert()
 ```
-Данная процедура запускает процесс автоматического получения сертификата. Она не содержит параметров.
+This procedure starts the process of automatically obtaining a certificate. It contains no parameters.
 
-# Пример использования модуля
-В примере используется внешний модуль - [http.server](https://github.com/tarantool/http "http.server").
+# An example of using the module
+The example uses an external module - [http.server](https://github.com/tarantool/http "http.server").
 ``` lua
-    local server = require('http.server').new("123.45.67.89", 80) -- 123.45.67.89 - внутренний ip сервера, 80 - номер прослушиваемого порта
+    local server = require("http.server").new("123.45.67.89", 80) -- 123.45.67.89 - server's internal ip, 80 - listening port number
     local acmeClient = require("acme-client")
     acmeClient:init(settings)
 
@@ -95,15 +99,11 @@ getCert()
         local proc = nil
         if body ~= nil then
             proc = function (request)
-                return {
-                    status = 200,
-					headers = {["content-type"] = "text/plain"},
-                    body = body
-                }
+                return request:render{status = 200, text = body}
             end
         else
             proc = function (request)
-                return { status = 404 }
+                return request:render{status = 404}
             end
         end
         server:route({ path = url }, proc)
