@@ -1,6 +1,4 @@
--- acme-client.lua
--- 1div0, 2022.09.17
--- v1.0
+-- acme-client
 
 local acmeClient = {}
 
