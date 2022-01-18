@@ -1,13 +1,12 @@
 -- acme-client
+local acmeClient = {}
 
-local json = require("json")
+local digest = require("digest")
 local fio = require("fio")
 local httpClient = require("http.client")
-local digest = require("digest")
-local string = require("string")
+local json = require("json")
 local popen = require("popen")
-
-local acmeClient = {}
+local string = require("string")
 
 local function execute(command)
     local prog = popen.shell(command, "r")
