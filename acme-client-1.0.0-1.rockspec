@@ -1,9 +1,9 @@
--- name of the package to be published
 package = 'acme-client'
-version = 'scm-1'
+version = '1.0.0-1'
 source  = {
     url    = 'git+https://github.com/a1div0/acme-client.git';
     branch = 'main';
+    tag = '1.0.0'
 }
 description = {
     summary  = "Lua module ACME(v2)-client for Tarantool";
