@@ -10,6 +10,7 @@ align="right">
 * [Installation](#installation)
 * [Preparing for work](#preparing-for-work)
 * [An example of using the module](#an-example-of-using-the-module)
+* [Possible problems](#possible-problems)
 
 ## General information
 Link to [GitHub](https://github.com/a1div0/acme-client "GitHub").
@@ -111,3 +112,6 @@ The example uses an external module - [http.server](https://github.com/tarantool
 
     acmeClient:getCert()
 ```
+
+## Possible problems
+If there is a problem, pay attention to the [limits](https://letsencrypt.org/ru/docs/rate-limits/ "limits") of the service. For example, Let's Encrypt issues no more than 5 free certificates per domain per week. There are limits on the number of requests - during debugging on a live service, they are easy to exceed.
