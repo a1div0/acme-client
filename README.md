@@ -13,7 +13,7 @@ align="right">
 * [Possible problems](#possible-problems)
 
 ## General information
-Link to [GitHub](https://github.com/a1div0/acme-client "GitHub").
+Link to [GitHub](https://github.com/a1div0/acme-client "GitHub"). More details about the operation of the algorithm and the module can be found [here](https://1div0.ru/about-acme-client/).
 
 The ACME protocol client is used to automatically obtain a security certificate for your site. Basically everyone uses [Let's Encrypt](https://letsencrypt.org/ "Let's Encrypt") to get a free certificate and auto-renewal. But there are other services, such as [Zero SSL](https://zerossl.com/ "Zero SSL"). It also supports the ACME protocol.
 
