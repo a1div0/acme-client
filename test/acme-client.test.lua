@@ -2,7 +2,7 @@
 
 package.path = "../acme-client/?.lua;"..package.path
 
-require('ide-debug')
+--require('ide-debug')
 local acmeClient = require("acme-client")
 local tap = require('tap')
 
