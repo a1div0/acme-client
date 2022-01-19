@@ -1,12 +1,13 @@
 -- acme-client
-local acmeClient = {}
 
-local digest = require("digest")
+local json = require("json")
 local fio = require("fio")
 local httpClient = require("http.client")
-local json = require("json")
-local popen = require("popen")
+local digest = require("digest")
 local string = require("string")
+local popen = require("popen")
+
+local acmeClient = {}
 
 local function execute(command)
     local prog = popen.shell(command, "r")
@@ -291,12 +292,19 @@ end
 
 function acmeClient:setupChallengeHttp01(token, keyAuthorization)
     local url = "/.well-known/acme-challenge/" .. token
-    self.onSetupChallengeHttp01(url, keyAuthorization)
+    return self.onSetupChallengeHttp01(url, keyAuthorization)
 end
 
 function acmeClient:setupChallengeDns01(keyAuthorization)
-    local key = "_acme-challenge.<YOUR_DOMAIN>"
-    self.onSetupChallengeDns01(key, keyAuthorization)
+    local wildcard = self.dnsName:sub(1, 2) == "*."
+    local dnsName = ""
+    if wildcard then
+        dnsName = self.dnsName:sub(3)
+    else
+        dnsName = self.dnsName
+    end
+    local key = "_acme-challenge."..dnsName
+    return self.onSetupChallengeDns01(key, keyAuthorization)
 end
 
 function acmeClient:setupChallenge(token, keyAuthorization)
