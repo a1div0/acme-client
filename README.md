@@ -16,7 +16,7 @@ Link to [GitHub](https://github.com/a1div0/acme-client "GitHub").
 
 The ACME protocol client is used to automatically obtain a security certificate for your site. Basically everyone uses [Let's Encrypt](https://letsencrypt.org/ "Let's Encrypt") to get a free certificate and auto-renewal. But there are other services, such as [Zero SSL](https://zerossl.com/ "Zero SSL"). It also supports the ACME protocol.
 
-I relied on two articles from Habr ([this](https://habr.com/ru/company/ispsystem/blog/354420/"this") and [this](https://habr.com/ru/company/ispsystem/blog/413429/ "this")), as well as [RFC8555](https://datatracker.ietf.org/doc/html/rfc8555 "RFC8555"). But the information in them was not enough to implement their own version of the modulation. At least several times higher than several implementations of the module [at another level]. The tests were conducted on a live service, so there are no autotests yet. You can write and commit.
+I relied on two articles from Habr ([this](https://habr.com/ru/company/ispsystem/blog/354420/"this") and [this](https://habr.com/ru/company/ispsystem/blog/413429/ "this")), as well as [RFC8555](https://datatracker.ietf.org/doc/html/rfc8555 "RFC8555"). But the information in them was not enough to implement their own version of the modulation. At least several times higher than several implementations of the module [at another level]. The tests were conducted on a live service, so there are no autotests yet. You can write and init pull request.
 
 The module is written under Linux. Only the second version of the protocol is considered.
 
