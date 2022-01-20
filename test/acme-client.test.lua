@@ -3,7 +3,7 @@
 package.path = "../acme-client/?.lua;"..package.path
 
 --require('ide-debug')
-local acmeClient = require("acme-client")
+local acmeClient = require("init")
 local tap = require('tap')
 
 local test = tap.test('acme-client tests')
@@ -11,7 +11,7 @@ test:plan(1)
 
 test:test('acme-client', function(test)
     test:plan(1)
-    --test:is(kit.test(1), 11, "Lua function in acme-client.lua")
+    --test:is(kit.test(1), 11, "Lua function in init.lua")
 
     local settings = {
         dnsName = "a",

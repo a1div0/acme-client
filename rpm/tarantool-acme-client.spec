@@ -22,7 +22,7 @@ Lua module ACME(v2)-client for Tarantool
 %install
 # Create /usr/share/tarantool/acme-client
 mkdir -p %{buildroot}%{_datadir}/tarantool/acme-client
-# Copy init.lua to /usr/share/tarantool/acme-client/acme-client.lua
+# Copy init.lua to /usr/share/tarantool/acme-client/init.lua
 cp -p luakit/*.lua %{buildroot}%{_datadir}/tarantool/acme-client
 
 %files

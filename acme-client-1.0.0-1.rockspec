@@ -17,6 +17,6 @@ dependencies = {
 build = {
     type = 'builtin';
     modules = {
-        ['acme-client'] = 'acme-client/acme-client.lua';
+        ['acme-client'] = 'acme-client/init.lua';
     }
 }
