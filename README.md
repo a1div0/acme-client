@@ -3,7 +3,7 @@
 align="right">
 </a>
 
-# ACME-client for Tarantool 1.7.5+
+# ACME-client for Tarantool
 
 ## Table of contents
 * [General information](#general-information)
@@ -43,7 +43,7 @@ You must first submit a Certificate Signing Request - [CSR](https://en.wikipedia
 5. State/Province (ST) and city (L) - the location of the organization;
 6. e-mail (EMAIL) - mail for communication with the contact.
 
-You can generate such a file using online generators, for example [here] (https://csrgenerator.com/ "CSR Generator") and [here] (https://www.reg.ru/ssl-certificate/generate_key_and_csr "Creating certificate request"). You can use OpenSSL. To do this, enter a command like:
+You can generate such a file using online generators, for example [here](https://csrgenerator.com/ "CSR Generator") and [here](https://www.reg.ru/ssl-certificate/generate_key_and_csr "Creating certificate request"). You can use OpenSSL. To do this, enter a command like:
 ```
 openssl genrsa -out private.key 4096
 openssl req -new -key private.key -out domain_name.csr -sha256
