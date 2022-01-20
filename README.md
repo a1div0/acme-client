@@ -77,11 +77,11 @@ See [API](#api).
 getCert(settings, yourChallengeSetupProc)
 ```
 This procedure starts the process of automatically obtaining a certificate. Contains the `settings` parameter, which is a table with fields:
-* `dnsName` - required field, domain name with a certificate;
-* `certPath` - required field, full path to the folder with certificates;
-* `certName` - optional, default = `cert.pem`, this is the name of the file, the certificate will be created with the animals;
-* `csrName` - required field, the name of the certificate signing request file created earlier and placed in the `certPath` folder;
-* `challengeType` - optional, default = `http-01`, this setting indicates what type of verification that you own the domain will be in the Republic. There are two options available: `http01` and `dns01`. The first type of verification confirms ownership, the impact of a GET request on a specific site address. The second type of check makes a DNS query. The second type of verification is required if a certificate for a domain name is encountered with all subdomains at once: `*.domain.name` (wildcard certificates). More details can be found below in the article and [here](https://letsencrypt.org/en/docs/challenge-types/ "here").
+* `dnsName` - required field, domain name with a certificate
+* `certPath` - required field, full path to the folder with certificates
+* `certName` - optional, default = `cert.pem`, this is the name of the file, with which the certificate will be created
+* `csrName` - required field, the name of the certificate signing request file created earlier and placed in the `certPath` folder
+* `challengeType` - optional, default = `http-01`, this setting indicates what type of verification that you own the domain will be used. There are two options available: `http01` and `dns01`. The first type of verification confirms ownership, the impact of a GET request on a specific site address. The second type of check makes a DNS query. The second type of verification is required if a certificate for a domain name is encountered with all subdomains at once: `*.domain.name` (wildcard certificates). More details can be found below in the article and [here](https://letsencrypt.org/en/docs/challenge-types/ "here").
 * `acmeDirectoryUrl` - optional, default = "https://acme-v02.api.letsencrypt.org/directory", this is the path to the entry point of the ACME-server.
 
 The second parameter is `proc` - this is your procedure to make sure your server does the ACME check. Implementation depends on the type of validation:
@@ -103,7 +103,7 @@ function yourProc(key, value)
     -- your code --
 end
 ```
-This procedure must be overridden if the `dns01` check is used. The procedure will be called when a DNS record of type `TXT` needs to be set. At the time of the call, the module will pass the key name `key` and its value `value`, which must be recorded in DNS.
+The procedure will be called when a DNS record of type `TXT` needs to be set. At the time of the call, the module will pass the key name `key` and its value `value`, which must be recorded in DNS.
 The procedure is called twice - once to set the entry, the second time to cancel the setting (nil will be passed in the `value` parameter).
 An example implementation of this type of validation is beyond the scope of this article.
 
