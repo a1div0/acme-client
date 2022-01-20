@@ -20,18 +20,10 @@ test:test('acme-client', function(test)
     }
     local res = {}
 
-    acmeClient:init(settings)
-    acmeClient.onSetupChallengeDns01 = function (key, value)
+    local function myChallengeSetup(key, value)
         return {key, value}
     end
-    res = acmeClient:setupChallengeDns01("123")
-    test:ok(res[1] == "_acme-challenge.a", "Check setupChallengeDns01 - dns name = a")
-    test:ok(res[2] == "123", "Check setupChallengeDns01 - check value")
 
-    acmeClient.dnsName = "*.test.ru"
-    res = acmeClient:setupChallengeDns01("123")
-    test:ok(res[1] == "_acme-challenge.test.ru", "Check setupChallengeDns01 - dns name = *.test.ru")
-    test:ok(res[2] == "123", "Check setupChallengeDns01 - check value")
 end)
 
 os.exit(test:check() == true and 0 or -1)

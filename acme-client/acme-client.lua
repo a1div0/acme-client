@@ -292,7 +292,7 @@ end
 
 function acmeClient:setupChallengeHttp01(token, keyAuthorization)
     local url = "/.well-known/acme-challenge/" .. token
-    return self.onSetupChallengeHttp01(url, keyAuthorization)
+    return self.onChallengeSetup(url, keyAuthorization)
 end
 
 function acmeClient:setupChallengeDns01(keyAuthorization)
@@ -304,7 +304,7 @@ function acmeClient:setupChallengeDns01(keyAuthorization)
         dnsName = self.dnsName
     end
     local key = "_acme-challenge."..dnsName
-    return self.onSetupChallengeDns01(key, keyAuthorization)
+    return self.onChallengeSetup(key, keyAuthorization)
 end
 
 function acmeClient:setupChallenge(token, keyAuthorization)
@@ -312,6 +312,8 @@ function acmeClient:setupChallenge(token, keyAuthorization)
         self:setupChallengeHttp01(token, keyAuthorization)
     elseif self.challengeType == "dns-01" then
         self:setupChallengeDns01(keyAuthorization)
+    else
+        error("Challenge type "..self.challengeType.." not support!")
     end
 end
 
@@ -335,34 +337,22 @@ function acmeClient:newOrder()
     self.orderUrl = resp.headers["location"]
 end
 
-function acmeClient:selfCheck()
-    if self.challengeType == "http-01" then
-        if self.onSetupChallengeHttp01 == nil then
-            error("You need to set a handler 'onSetupChallengeHttp01'!")
-        end
-    elseif self.challengeType == "dns-01" then
-        if self.onSetupChallengeDns01 == nil then
-            error("You need to set a handler 'onSetupChallengeDns01'!")
-        end
-    else
-        error("Challenge type "..self.challengeType.." not support!")
-    end
-end
+function acmeClient.getCert(settings, yourChallengeSetupProc)
 
-function acmeClient:init(settings)
+    if yourChallengeSetupProc == nil then
+        error("You need to set a handler 'yourChallengeSetupProc'!")
+    end
+
     self.dnsName = settings.dnsName
     self.certPath = settings.certPath
     self.certName = settings.certName or "cert.pem"
     self.csrName = settings.csrName
     self.challengeType = settings.challengeType or "http-01"
     self.acmeDirectoryUrl = settings.acmeDirectoryUrl or "https://acme-v02.api.letsencrypt.org/directory"
+    self.onChallengeSetup = yourChallengeSetupProc
 
     self.rsaPrivateKeyFileName = settings.certPath .. "rsa temp.pem"
-end
 
-function acmeClient:getCert()
-
-    self:selfCheck()
     self:loadCsr()
     self:createRsaPrivateKey()
     self:getRsaPrivateKeyParam1()
@@ -388,8 +378,5 @@ function acmeClient:getCert()
 
     self:setupChallenge(challengeData.token, nil)
 end
-
-acmeClient.onSetupChallengeHttp01 = nil
-acmeClient.onSetupChallengeDns01 = nil
 
 return acmeClient
