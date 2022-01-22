@@ -343,40 +343,41 @@ function acmeClient.getCert(settings, yourChallengeSetupProc)
         error("You need to set a handler 'yourChallengeSetupProc'!")
     end
 
-    self.dnsName = settings.dnsName
-    self.certPath = settings.certPath
-    self.certName = settings.certName or "cert.pem"
-    self.csrName = settings.csrName
-    self.challengeType = settings.challengeType or "http-01"
-    self.acmeDirectoryUrl = settings.acmeDirectoryUrl or "https://acme-v02.api.letsencrypt.org/directory"
-    self.onChallengeSetup = yourChallengeSetupProc
+    acmeClient.dnsName = settings.dnsName
+    acmeClient.certPath = settings.certPath
+    acmeClient.certName = settings.certName or "cert.pem"
+    acmeClient.rsaPrivateKeyName = settings.rsaPrivateKeyName or "private.pem"
+    acmeClient.csrName = settings.csrName
+    acmeClient.challengeType = settings.challengeType or "http-01"
+    acmeClient.acmeDirectoryUrl = settings.acmeDirectoryUrl or "https://acme-v02.api.letsencrypt.org/directory"
+    acmeClient.onChallengeSetup = yourChallengeSetupProc
 
-    self.rsaPrivateKeyFileName = settings.certPath .. "rsa temp.pem"
+    acmeClient.rsaPrivateKeyFileName = settings.certPath..acmeClient.rsaPrivateKeyName
 
-    self:loadCsr()
-    self:createRsaPrivateKey()
-    self:getRsaPrivateKeyParam1()
-    self:getRsaPrivateKeyParam2()
-    self:buildJwk()
-    self:requestSettings()
-    self:newAccount()
-    self:newOrder()
-    self:getInstructions()
+    acmeClient:loadCsr()
+    acmeClient:createRsaPrivateKey()
+    acmeClient:getRsaPrivateKeyParam1()
+    acmeClient:getRsaPrivateKeyParam2()
+    acmeClient:buildJwk()
+    acmeClient:requestSettings()
+    acmeClient:newAccount()
+    acmeClient:newOrder()
+    acmeClient:getInstructions()
 
-    local challengeData = self:getChallenge()
-    local jwkHashBin = digest.sha256(self.jwk)
+    local challengeData = acmeClient:getChallenge()
+    local jwkHashBin = digest.sha256(acmeClient.jwk)
     local keyAuthorization = challengeData.token .. "." .. base64url(jwkHashBin)
-    self:setupChallenge(challengeData.token, keyAuthorization)
+    acmeClient:setupChallenge(challengeData.token, keyAuthorization)
 
     local payload = {
         resource = "challenges",
         keyAuthorization = keyAuthorization
     }
-    self:acmeRequest(challengeData.url, payload)
-    self:waitReady()
-    self:loadAndSaveCert()
+    acmeClient:acmeRequest(challengeData.url, payload)
+    acmeClient:waitReady()
+    acmeClient:loadAndSaveCert()
 
-    self:setupChallenge(challengeData.token, nil)
+    acmeClient:setupChallenge(challengeData.token, nil)
 end
 
 return acmeClient
