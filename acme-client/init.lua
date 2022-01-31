@@ -1,4 +1,4 @@
--- acme-client
+-- acme-client, v2.0
 
 local json = require("json")
 local fio = require("fio")
@@ -7,7 +7,9 @@ local digest = require("digest")
 local string = require("string")
 local popen = require("popen")
 
-local acmeClient = {}
+local function errorf(fmt, ...)
+    error(string.format(fmt, ...))
+end
 
 local function execute(command)
     local prog = popen.shell(command, "r")
@@ -47,11 +49,77 @@ local function getSection(text, prefix, postfix)
     return string.sub(str, posPrefix + string.len(prefix), posPostfix - 1)
 end
 
-function acmeClient:loadCsr()
-    local fileName = self.certPath .. self.csrName
-    local file = fio.open(fileName, {"O_RDONLY"})
+local function httpGet(url, decode)
+    local clientObj = httpClient.new()
+    local resp = clientObj:request("GET", url)
+    if (resp.status < 200) or (resp.status >= 300) then
+        local errText = string.format("Error! Response code = %d. Url request: %s\n", resp.status, resp.body)..resp.body
+        error(errText)
+    end
+    local result = nil
+    if decode == false then
+        result = resp.body
+    else
+        result = json.decode(resp.body)
+    end
+    return result
+end
+
+local cfgFormat = [[
+FQDN = %s
+ORGNAME = "%s"
+ALTNAMES = DNS:$FQDN
+[req]
+default_bits = 4096
+default_md = sha256
+prompt = no
+encrypt_key = no
+distinguished_name = dn
+req_extensions = req_ext
+[req_ext]
+subjectAltName = $ALTNAMES
+[dn]
+CN = $FQDN
+O = $ORGNAME
+OU = "%s"
+C = "%s"
+ST = "%s"
+L = "%s"
+]]
+
+local function csrConfCreate(self)
+    local cnf = string.format(cfgFormat,
+            self.dnsName,
+            self.organization,
+            self.organizationUnit,
+            self.country,
+            self.state,
+            self.city
+    )
+    if self.email ~= nil then
+        cnf = cnf..string.format([[emailAddress = "%s"]], self.email)
+    end
+
+    local file = fio.open(self.csrConfName, {"O_WRONLY", "O_CREAT"})
     if not file then
-        error("Failed to open file "..fileName)
+        error("Failed to write csr-configuration file: "..self.csrConfName)
+    end
+    file:write(cnf)
+    file:close()
+    fio.chmod(self.csrConfName, tonumber('660', 8))
+end
+
+local function csrCreate(self)
+    local command = string.format("openssl req -new -config '%s' -out '%s'", self.csrConfName, self.csrName)
+    self.rsaPrivateKeySection = execute(command)
+
+    os.remove(self.csrConfName)
+end
+
+local function csrLoad(self)
+    local file = fio.open(self.csrName, {"O_RDONLY"})
+    if not file then
+        error("Failed to open file "..self.csrName)
     end
     local pemData = file:read()
     file:close()
@@ -61,32 +129,17 @@ function acmeClient:loadCsr()
         error("Section 'Certificate Signing Request' not found!")
     end
     self.csr = digest.base64_decode(csrB64)
+
+    os.remove(self.csrName)
 end
 
-function acmeClient:createRsaPrivateKey()
-    local command = string.format("openssl genrsa -out '%s' 2048", self.rsaPrivateKeyFileName)
+local function createPrivateKey(self)
+    local command = string.format("openssl genrsa -out '%s' 2048", self.privateAccName)
     execute(command)
-
-    local file = fio.open(self.rsaPrivateKeyFileName, {"O_RDONLY"})
-    if not file then
-        error("RSA private key - was not formed!")
-    end
-    local data = file:read()
-    file:close()
-
-    local rsaPrivateKey = getSection(data, "-----BEGIN RSA PRIVATE KEY-----", "-----END RSA PRIVATE KEY-----")
-    if rsaPrivateKey == nil then
-        rsaPrivateKey = getSection(data, "-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----")
-        if rsaPrivateKey == nil then
-            error("Section with private key not found!")
-        end
-    end
-
-    self.rsaPrivateKey = digest.base64_decode(rsaPrivateKey)
 end
 
-function acmeClient:getRsaPrivateKeyParam1()
-    local command = string.format("openssl rsa -text -noout < '%s'", self.rsaPrivateKeyFileName)
+local function getPublicParam1(self)
+    local command = string.format("openssl rsa -text -noout < '%s'", self.privateAccName)
     local outputStr = execute(command)
     local findPhrase = "publicExponent: "
     local textLines = string.split(outputStr, "\n")
@@ -102,10 +155,14 @@ function acmeClient:getRsaPrivateKeyParam1()
             break
         end
     end
+
+    if self.publicExponent == nil then
+        error("Error: failed to extract publicExponent!")
+    end
 end
 
-function acmeClient:getRsaPrivateKeyParam2()
-    local command = string.format("openssl rsa -noout -modulus < '%s'", self.rsaPrivateKeyFileName)
+local function getPublicParam2(self)
+    local command = string.format("openssl rsa -noout -modulus < '%s'", self.privateAccName)
     local outputStr = execute(command)
     local pos = string.find(outputStr, "=")
     if pos ~= nil then
@@ -115,7 +172,7 @@ function acmeClient:getRsaPrivateKeyParam2()
     end
 end
 
-function acmeClient:buildJwk()
+local function buildJwk(self)
     local publicExponentBin = numberStringToBin(self.publicExponent)
     local modulusBin = string.fromhex(self.modulus)
 
@@ -126,7 +183,7 @@ function acmeClient:buildJwk()
     )
 end
 
-function acmeClient:requestSettings()
+local function requestSettings(self)
     local clientObj = httpClient.new()
     local resp = clientObj:request("GET", self.acmeDirectoryUrl)
     if (resp.status < 200) or (resp.status >= 300) then
@@ -145,10 +202,14 @@ function acmeClient:requestSettings()
     end
 end
 
-function acmeClient:signature(data)
-    local command = string.format("printf '%s' | openssl dgst -binary -sha256 -sign '%s'"
+local function signature(self, data)
+    -- openssl first gets the sha-256 hash of the message, then signs it with
+    -- the private key
+    -- In future see: https://github.com/spacewander/lua-resty-rsa
+    local command = string.format(
+            "printf '%s' | openssl dgst -binary -sha256 -sign '%s'"
     , data
-    , self.rsaPrivateKeyFileName
+    , self.privateAccName
     )
     local signatureBin = execute(command)
     if signatureBin == nil or signatureBin == "" then
@@ -158,7 +219,7 @@ function acmeClient:signature(data)
     return signatureBin
 end
 
-function acmeClient:acmeRequest(url, payloadStruct)
+local function acmeRequest(self, url, payloadStruct)
 
     local protected = ""
 
@@ -180,7 +241,7 @@ function acmeClient:acmeRequest(url, payloadStruct)
     local payload = json.encode(payloadStruct)
     local payloadB64 = base64url(payload)
 
-    local signatureBin = self:signature(protectedB64.."."..payloadB64)
+    local signatureBin = signature(self, protectedB64.."."..payloadB64)
     local signatureB64 = base64url(signatureBin)
 
     local bodyStruct = {
@@ -206,7 +267,7 @@ function acmeClient:acmeRequest(url, payloadStruct)
     return resp
 end
 
-function acmeClient:getInstructions()
+local function getInstructions(self)
     local clientObj = httpClient.new()
     local resp = clientObj:request("GET", self.orderData.authorizations[1])
     if (resp.status < 200) or (resp.status >= 300) then
@@ -215,7 +276,7 @@ function acmeClient:getInstructions()
     self.instructions = json.decode(resp.body)
 end
 
-function acmeClient:getChallenge()
+local function getChallenge(self)
     for _, challengeData in ipairs(self.instructions.challenges) do
         if challengeData.type == self.challengeType then
             return challengeData
@@ -225,23 +286,7 @@ function acmeClient:getChallenge()
     return nil
 end
 
-function acmeClient:httpGet(url, decode)
-    local clientObj = httpClient.new()
-    local resp = clientObj:request("GET", url)
-    if (resp.status < 200) or (resp.status >= 300) then
-        local errText = string.format("Error! Response code = %d. Url request: %s\n", resp.status, resp.body)..resp.body
-        error(errText)
-    end
-    local result = nil
-    if decode == false then
-        result = resp.body
-    else
-        result = json.decode(resp.body)
-    end
-    return result
-end
-
-function acmeClient:waitReady()
+local function waitReady(self)
     local timeoutSec = 10
     local sleepSec = 0.25
     local maxIterate = timeoutSec / sleepSec
@@ -251,7 +296,7 @@ function acmeClient:waitReady()
 
     for _ = 1, maxIterate do
         fiber.sleep(sleepSec)
-        local orderResult = self:httpGet(self.orderUrl)
+        local orderResult = httpGet(self.orderUrl)
         if orderResult.status == "ready" then
             orderReady = true
             break
@@ -266,36 +311,12 @@ function acmeClient:waitReady()
     end
 end
 
-function acmeClient:loadAndSaveCert()
-
-    local payload = {
-        csr = base64url(self.csr)
-    }
-
-    local resp = self:acmeRequest(self.orderData.finalize, payload)
-    local respData = json.decode(resp.body)
-    if (respData.status ~= "valid") then
-        error("Failed to finalize order at " .. self.orderData.finalize .. "\n" .. respData.body)
-    end
-
-    local certBin = self:httpGet(respData.certificate, false)
-
-    local fileName = self.certPath .. self.certName
-    local file = fio.open (fileName, {"O_WRONLY", "O_CREAT"})
-    if not file then
-        error("Failed to write certificate file")
-    end
-    file:write(certBin)
-    file:close()
-
-end
-
-function acmeClient:setupChallengeHttp01(token, keyAuthorization)
+local function setupChallengeHttp01(self, token, keyAuthorization)
     local url = "/.well-known/acme-challenge/" .. token
     return self.onChallengeSetup(url, keyAuthorization)
 end
 
-function acmeClient:setupChallengeDns01(keyAuthorization)
+local function setupChallengeDns01(self, keyAuthorization)
     local wildcard = self.dnsName:sub(1, 2) == "*."
     local dnsName = ""
     if wildcard then
@@ -307,23 +328,23 @@ function acmeClient:setupChallengeDns01(keyAuthorization)
     return self.onChallengeSetup(key, keyAuthorization)
 end
 
-function acmeClient:setupChallenge(token, keyAuthorization)
+local function setupChallenge(self, token, keyAuthorization)
     if self.challengeType == "http-01" then
-        self:setupChallengeHttp01(token, keyAuthorization)
+        setupChallengeHttp01(self, token, keyAuthorization)
     elseif self.challengeType == "dns-01" then
-        self:setupChallengeDns01(keyAuthorization)
+        setupChallengeDns01(self, keyAuthorization)
     else
         error("Challenge type "..self.challengeType.." not support!")
     end
 end
 
-function acmeClient:newAccount()
+local function newAccount(self)
     local payload = {termsOfServiceAgreed = true}
-    local resp = self:acmeRequest(self.directory.newAccount, payload)
+    local resp = acmeRequest(self, self.directory.newAccount, payload)
     self.kid = resp.headers["location"]
 end
 
-function acmeClient:newOrder()
+local function newOrder(self)
     local payload = {
         identifiers = {
             [1] = {
@@ -332,52 +353,165 @@ function acmeClient:newOrder()
             }
         }
     }
-    local resp = self:acmeRequest(self.directory.newOrder, payload)
+    local resp = acmeRequest(self, self.directory.newOrder, payload)
     self.orderData = json.decode(resp.body)
     self.orderUrl = resp.headers["location"]
 end
 
-function acmeClient.getCert(settings, yourChallengeSetupProc)
+local function loadAndSaveCert(self)
 
-    if yourChallengeSetupProc == nil then
-        error("You need to set a handler 'yourChallengeSetupProc'!")
+    local payload = {
+        csr = base64url(self.csr)
+    }
+
+    local resp = acmeRequest(self, self.orderData.finalize, payload)
+    local respData = json.decode(resp.body)
+    if (respData.status ~= "valid") then
+        error("Failed to finalize order at " .. self.orderData.finalize .. "\n" .. respData.body)
     end
 
-    acmeClient.dnsName = settings.dnsName
-    acmeClient.certPath = settings.certPath
-    acmeClient.certName = settings.certName or "cert.pem"
-    acmeClient.rsaPrivateKeyName = settings.rsaPrivateKeyName or "private.pem"
-    acmeClient.csrName = settings.csrName
-    acmeClient.challengeType = settings.challengeType or "http-01"
-    acmeClient.acmeDirectoryUrl = settings.acmeDirectoryUrl or "https://acme-v02.api.letsencrypt.org/directory"
-    acmeClient.onChallengeSetup = yourChallengeSetupProc
+    local certBin = httpGet(respData.certificate, false)
+    if certBin == nil or certBin == "" then
+        error("Certificate data not received")
+    end
 
-    acmeClient.rsaPrivateKeyFileName = settings.certPath..acmeClient.rsaPrivateKeyName
+    certBin = certBin.."\n"..self.rsaPrivateKeySection
 
-    acmeClient:loadCsr()
-    acmeClient:createRsaPrivateKey()
-    acmeClient:getRsaPrivateKeyParam1()
-    acmeClient:getRsaPrivateKeyParam2()
-    acmeClient:buildJwk()
-    acmeClient:requestSettings()
-    acmeClient:newAccount()
-    acmeClient:newOrder()
-    acmeClient:getInstructions()
+    local file = fio.open(self.certName, {"O_WRONLY", "O_CREAT"})
+    if not file then
+        error("Failed to write certificate file")
+    end
+    file:write(certBin)
+    file:close()
 
-    local challengeData = acmeClient:getChallenge()
-    local jwkHashBin = digest.sha256(acmeClient.jwk)
+    fio.chmod(self.certName, tonumber('660', 8))
+end
+
+local function getCert(self)
+
+    if self == nil then
+        error("Must be call used `:getCert()`")
+    end
+
+    csrConfCreate(self)
+    csrCreate(self)
+    csrLoad(self)
+    createPrivateKey(self) -- certificate public key must be different than account key
+    getPublicParam1(self)
+    getPublicParam2(self)
+    buildJwk(self)
+    requestSettings(self)
+    newAccount(self)
+    newOrder(self)
+    getInstructions(self)
+
+    local challengeData = getChallenge(self)
+    local jwkHashBin = digest.sha256(self.jwk)
     local keyAuthorization = challengeData.token .. "." .. base64url(jwkHashBin)
-    acmeClient:setupChallenge(challengeData.token, keyAuthorization)
+    setupChallenge(self, challengeData.token, keyAuthorization)
 
     local payload = {
         resource = "challenges",
         keyAuthorization = keyAuthorization
     }
-    acmeClient:acmeRequest(challengeData.url, payload)
-    acmeClient:waitReady()
-    acmeClient:loadAndSaveCert()
+    acmeRequest(self, challengeData.url, payload)
+    waitReady(self)
+    loadAndSaveCert(self)
 
-    acmeClient:setupChallenge(challengeData.token, nil)
+    setupChallenge(self, challengeData.token, nil)
+
+    os.remove(self.privateAccName)
 end
 
-return acmeClient
+local function certValidTo(certName)
+    local command = string.format("openssl x509 -enddate -noout -in '%s' | cut -d= -f 2", certName)
+    local outputStr = execute(command)
+
+    command = "date --date='aaa' +'%F %T'"
+    command = command:gsub("aaa", outputStr)
+    local formatedDate = execute(command)
+
+    local year, month, day, hour, min, sec = formatedDate:match("(%d+)-(%d+)-(%d+) (%d+):(%d+):(%d+)")
+    local datetime = {
+        year = year,
+        month = month,
+        day = day,
+        hour = hour,
+        min = min,
+        sec = sec,
+    }
+    local timezone = os.time() - os.time(os.date("!*t"))
+    local result = os.time(datetime) + timezone
+
+    return result
+end
+
+local function validTo(self)
+    return certValidTo(self.certName)
+end
+
+local function checkNotEmpty(struct, fieldName)
+    if struct[fieldName] == nil or struct[fieldName] == "" then
+        errorf("Error: must specify %s!", fieldName)
+    end
+end
+
+local exports = {
+    certValidTo = certValidTo,
+    new = function(options, yourChallengeSetupProc)
+        if options == nil then
+            options = {}
+        end
+        if type(options) ~= "table" then
+            errorf("options must be table not '%s'", type(options))
+        end
+        if yourChallengeSetupProc == nil then
+            error("You need to set a handler 'yourChallengeSetupProc'!")
+        end
+
+        local default = {
+            certName = "cert.pem",
+            --privateKeyName = "private.pem",
+            privateAccName = "privacc.pem",
+            csrConfName = "csr.cnf",
+            csrName = "csr.pem",
+            orgInfo = "Not specified",
+            challengeType = "http-01",
+            acmeDirectoryUrl = "https://acme-v02.api.letsencrypt.org/directory",
+        }
+
+        checkNotEmpty(options, "dnsName")
+        checkNotEmpty(options, "certPath")
+
+        local self = {
+            dnsName = options.dnsName,
+            certPath = options.certPath,
+            certName = options.certName or default.certName,
+            privateAccName = options.tempRsaPrivateKeyName or default.privateAccName,
+            csrName = options.tempCsrName or default.csrName,
+            csrConfName = options.tempCsrConfName or default.csrConfName,
+            challengeType = options.challengeType or default.challengeType,
+            acmeDirectoryUrl = options.acmeDirectoryUrl or default.acmeDirectoryUrl,
+            organization = options.organization or default.orgInfo,
+            organizationUnit = options.organizationUnit or default.orgInfo,
+            country = options.country or "EN",
+            state = options.state or default.orgInfo,
+            city = options.city or default.orgInfo,
+            email = options.email,
+            onChallengeSetup = yourChallengeSetupProc,
+
+            -- methods
+            getCert = getCert,
+            validTo = validTo,
+        }
+
+        self.certName = self.certPath..self.certName
+        self.privateAccName = self.certPath..self.privateAccName
+        self.csrName = self.certPath..self.csrName
+        self.csrConfName = self.certPath..self.csrConfName
+
+        return self
+    end
+}
+
+return exports
