@@ -1,9 +1,9 @@
 package = 'acme-client'
-version = '1.0.0-1'
+version = '2.0.0-1'
 source  = {
     url    = 'git+https://github.com/a1div0/acme-client.git';
     branch = 'main';
-    tag = '1.0.0'
+    tag = '2.0.0'
 }
 description = {
     summary  = "Lua module ACME(v2)-client for Tarantool";

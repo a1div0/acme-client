@@ -1,5 +1,5 @@
 Name: tarantool-acme-client
-Version: 1.0.0
+Version: 2.0.0
 Release: 1%{?dist}
 Summary: Lua module ACME(v2)-client for Tarantool
 Group: Applications/Databases
@@ -33,5 +33,6 @@ cp -p luakit/*.lua %{buildroot}%{_datadir}/tarantool/acme-client
 %license LICENSE AUTHORS
 
 %changelog
+* Mon Jan 31 2022 Alexander Klenov <a.a.klenov@ya.ru> 2.0.0-1
 * Tue Jan 18 2022 Alexander Klenov <a.a.klenov@ya.ru> 1.0.0-1
 - Initial version of the RPM spec

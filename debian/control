@@ -4,7 +4,7 @@ Section: database
 Maintainer: Alexander Klenov <a.a.klenov@ya.ru>
 Build-Depends: debhelper (>= 9), tarantool (>= 1.7.5.0)
 Standards-Version: 3.9.8
-Version: 1:1.0.0
+Version: 2:2.0.0
 Homepage: https://github.com/a1div0/acme-client
 Vcs-Git: git://github.com/a1div0/acme-client.git
 Vcs-Browser: https://github.com/a1div0/acme-client
