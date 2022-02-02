@@ -424,6 +424,12 @@ local function getCert(self)
 end
 
 local function certValidTo(certName)
+    local f = fio.open(certName, {"O_RDONLY"})
+    if not f then
+        return nil
+    end
+    f:close()
+
     local command = string.format("openssl x509 -enddate -noout -in '%s' | cut -d= -f 2", certName)
     local outputStr = execute(command)
 
